@@ -1,8 +1,8 @@
-import GameMain.GameMainTest;
+import GameMain.GameMain;
 
 public class App {
     public static void main(String[] args) throws Exception {
-        GameMainTest gm = new GameMainTest();
+        GameMain gm = new GameMain();
         gm.Run();
     }
 }

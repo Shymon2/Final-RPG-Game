@@ -1,280 +1,225 @@
 package GAMESTAGE;
-
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Scanner;
+
 import javax.swing.JOptionPane;
+
 import CHARACTER.*;
 import ITEM.*;
-import MAP.Map;
+import MAP.*;
 
-public class GameStage 
+
+public class GameStage implements Serializable
 {
-    protected Player player;                        //current player
-    protected Map map;                              //current map
-    protected Inventory inventory;                  //current inventory 
+    private Player player;
+    private Inventory invent;
+    private Map map;
 
-    private int stage;                              //current stage
-    private boolean winFlag;
-    private boolean loseFlag;
+    private int currentMapNo;
+    private int stageNo;
+    
 
+
+    private boolean isExit; 
+
+    private final int inventorySize = 10;
     private static Scanner input = new Scanner(System.in);
 
-//---------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 
     //Constructor
-    public GameStage(Player player, Map map, Inventory inventory, int stage)
+    public GameStage()
     {
-        this.player = player;
-        this.map = map;
-        this.inventory = inventory;
-        this.stage = stage;
-        this.winFlag = false;
-        this.loseFlag = false;
+        this.currentMapNo = 1;
+        this.stageNo = 1;
+        this.isExit = false;
 
+        this.player = new Player(null);
+        this.map = new Map("src\\InputFile\\map"+ currentMapNo + ".txt");
+        this.invent = new Inventory(inventorySize);
     }
 
-
-//-------------------------------------------------- Getter Methods -------------------------------------------------
-    public boolean getWinFlag()
-    {return this.winFlag;}
-
-    public boolean getLoseFlag()
-    {return this.loseFlag;}
-
-//-------------------------------------------------- Start Game -----------------------------------------------------
-
-    public void run(){
-        
-        System.out.println("\n***********************************************************");
-        System.out.println(">>>>>>>>>>>>>>>>>>> Welcome to Stage #" + this.stage + " <<<<<<<<<<<<<<<<<<<");
-        System.out.println("***********************************************************\n");
-        System.out.println("Press any key to continue................");
-        input.nextLine();
-
-        //Print the initial state of player
-        System.out.println("\n*****************************************************\n");
-        this.player.showState();
-        this.map.drawMap(player);
-
-        //Game Loop   
-        MainMenu(this.map, this.player, this.inventory);
-                
+//---------------------------------------------- Map-Stage Section ----------------------------------------------------
+    
+    public void nextmap()
+    {
+        (this.currentMapNo)++;
+        if(this.map.getBossPhase()!=1)
+            (this.stageNo)++;
+        this.map = new Map("src\\InputFile\\map"+ currentMapNo + ".txt");
     }
 
-//------------------------------------------------- Main Menu --------------------------------------------------------  
+    public void resetstage()
+    {
+        this.stageNo = 1;
+        this.currentMapNo = 1;
+        this.map = new Map("src\\InputFile\\map"+ currentMapNo + ".txt");
+    }
 
-    public void MainMenu(Map m, Player obj, Inventory i){
-        int choice;
-        do
-        {
-            System.out.println("\n------------------------------------------------------\n");
-            System.out.println("1. Move");
-            System.out.println("2. Show Inventory");
-            System.out.println("3. Attack");
-            System.out.println("4. Back To Home");
-            System.out.print("Enter your choice: ");
-            choice = input.nextInt();
-            input.nextLine();                               //Consume keyboard buffer
+    public int getStageNo()
+    {
+        return this.stageNo;
+    }
 
-            switch (choice) {
-                case 1:
-                    moveControl();
-                    break;
-                case 2:
-                    inventoryControl();
-                    break;
-                case 3:
-                    attackMenu();         
-                    break;
-                case 4:                    
-                    //System.out.println("Thanks for playing");
-                    break;               
-                default:
-                    System.out.println("Invalid choice");
-                    break;
-            }           
-        } while(choice != 4 && winFlag == false && loseFlag == false);
+    public int getCurrentMapNo()
+    {
+        return this.currentMapNo;
+    }
+
+    public void updateMap()
+    {
+        this.map.doWork(this.player, this.invent);
     }
 
     
-//---------------------------------- Menu for Move ---------------------------------------
+//---------------------------------------- win-loose-exit-door condition-----------------------------------------
 
-    public void moveControl() {
-        int choice;
-        boolean status = true;
-        do {
-            System.out.println("\n------------------------------------------------------\n");
-            System.out.println("1. Move Up");
-            System.out.println("2. Move Down");
-            System.out.println("3. Move Left");
-            System.out.println("4. Move Right");
-            System.out.println("5. No Move");
-            System.out.println("6. Back To Menu (Attack & Inventory)");
-            System.out.print("Enter your choice: ");
-            choice = input.nextInt();
-            input.nextLine();                           //Consume keyboard buffer
-
-            switch (choice) {
-                case 1:
-                    player.moveUp(map);
-                    updateGame(); 
-                    if(this.winFlag == true || this.loseFlag == true)
-                    {break;}                   
-                    map.drawMap(player);
-                    player.showState();
-                    messageToShow();
-                    break;
-
-                case 2:
-                    player.moveDown(map);
-                    updateGame();
-                    if(this.winFlag == true || this.loseFlag == true)
-                    {break;}   
-                    map.drawMap(player);
-                    player.showState();
-                    messageToShow();
-                    break;
-
-                case 3:
-                    player.moveLeft(map);
-                    updateGame();
-                    if(this.winFlag == true || this.loseFlag == true)
-                    {break;}   
-                    map.drawMap(player);
-                    player.showState();
-                    messageToShow();
-                    break;
-
-                case 4:
-                    player.moveRight(map);
-                    updateGame();
-                    if(this.winFlag == true || this.loseFlag == true)
-                    {break;}   
-                    map.drawMap(player);
-                    player.showState();
-                    messageToShow();
-                    break;
-
-                case 5:
-                    updateGame();
-                    if(this.winFlag == true || this.loseFlag == true)
-                    {break;}   
-                    map.drawMap(player);
-                    player.showState();
-                    messageToShow();
-                    break;
-
-                case 6: 
-                    
-                    status = false;
-                    break;
-
-                default:
-                    System.out.println("Invalid choice!");
-                    break;
-            }
-        } while (status == true  && winFlag == false && loseFlag == false);
+    public boolean win()                //(win = true ==> loose == false)  //(win = false ==> loose == true || false)
+    {
+        if(this.map.numberOfMonsters() == 0){
+            return true;
+        }
+        else
+            return false;
     }
-    
 
-//---------------------------------- Menu for Inventory ---------------------------------------   
-    public void inventoryControl(){
+    public boolean isExit()
+    {
+        return this.isExit;
+    }
+
+    public void setExitState(boolean stat)
+    {
+        this.isExit = stat;
+    }
+
+    public boolean loose()
+    {
+        if (this.player.getHP() == 0)
+            return true;
+        else
+            return false;
+    }
+
+    public boolean isPlayeratDoor()
+    {
+        return this.map.containDoorAt(this.player.getX(), this.player.getY());
+    }
+
+    public int getBossPhase()
+    {
+        return this.map.getBossPhase();
+    }
+
+
+//--------------------------------------------------- Player Section ---------------------------------------------------
+
+public void playerAction() {
+    System.out.println("\n*******************************************************************\n");
+    System.out.println("1. Move Up");
+    System.out.println("2. Move Down");
+    System.out.println("3. Move Left");
+    System.out.println("4. Move Right");
+    System.out.println("5. No Move");
+    System.out.println("6. Attack");
+    System.out.println("7. Inventory");
+    System.out.println("8. Exit");
+    int choice = getValidatedInput("Enter your choice: ");
+
+    switch (choice) {
+        case 1:
+            this.player.moveUp(this.map);
+            break;
+        case 2:
+            this.player.moveDown(this.map);
+            break;
+        case 3:
+            this.player.moveLeft(this.map);
+            break;
+        case 4:
+            this.player.moveRight(this.map);
+            break;
+        case 5:
+            break;
+        case 6:
+            playerAttack();
+            break;
+        case 7:
+            playerInvent();
+            break;
+        case 8:
+            this.isExit = true;
+            break;
+        default:
+            System.out.println("Invalid choice please choose again!");
+            playerAction();
+            break;
+    }
+}
+
+
+
+    public void playerMove(){
+        int choice;
         System.out.println("\n------------------------------------------------------\n");
-        if(inventory.isEmpty())         
-            System.out.println("Empty inventory");
-        else{
-            inventory.displayInventory();
-            System.out.println("Attack weapon: " + player.getCurrentWeapon());
-            System.out.println("Defense weapon: " + player.getCurrentArmor());
-            int choice, choice1;
-            boolean status = true;
-            do{              
-                System.out.print("Enter a number to show item (Exit: 0 | Range: 1 - " + inventory.size() + "): ");
-                choice = input.nextInt();
-                if(choice == 0) 
-                    status = false;
-                else if(0 < choice && choice <= inventory.size()){
-                    boolean status1 = true;
-                    System.out.println("\n------------------------------------------------------\n");  
-                    if(inventory.getItem(choice - 1) instanceof Weapon)
-                        System.out.println((inventory.getItem(choice - 1)).toString());
-                    else if(inventory.getItem(choice - 1) instanceof Armor)
-                        System.out.println((inventory.getItem(choice - 1)).toString());
-                    else if(inventory.getItem(choice - 1) instanceof Potion)
-                        System.out.println(inventory.getItem(choice - 1).toString());
-                    do{               
-                        System.out.println("1. Use item");
-                        System.out.println("2. Remove item");
-                        System.out.println("3. Back");
-                        System.out.print("Enter your choice: ");
-                        choice1 = input.nextInt();
-                        if(choice1 == 1){
-                            if(inventory.getItem(choice - 1) instanceof Weapon)
-                                player.equipWeapon(inventory.getItem(choice - 1));
-                            else if (inventory.getItem(choice - 1) instanceof Armor)
-                                player.equipArmor(inventory.getItem(choice - 1));
-                            else if (inventory.getItem(choice -1) instanceof Potion){
-                                player.equipPotion(inventory.getItem(choice -1));
-                                inventory.removeItem(choice - 1);
-                            }
-                            System.out.println("Equip sucessfully");
-                            System.out.println("\n------------------------------------------------------\n");
-                            inventory.displayInventory();
-                            System.out.println("Current weapon: " + player.getCurrentWeapon());
-                            System.out.println("Current armor: " + player.getCurrentArmor());
-                            status1 = false;
-                        }       
-                        else if(choice1 == 2){
-                            if(inventory.getItem(choice - 1) instanceof Weapon && inventory.getItem(choice - 1).getInUse() == true)
-                                player.unequipWeapon();
-                            else if(inventory.getItem(choice - 1) instanceof Armor && inventory.getItem(choice - 1).getInUse() == true)
-                                player.unequipArmor();
-                            inventory.removeItem(choice - 1);
-                            System.out.println("Remove sucessfully");
-                            System.out.println("\n------------------------------------------------------\n");
-                            inventory.displayInventory();
-                            System.out.println("Current weapon: " + player.getCurrentWeapon());
-                            System.out.println("Current armor: " + player.getCurrentArmor());
-                            status1 = false;
-                        }
-                        else if(choice1 == 3){            
-                            System.out.println("\n------------------------------------------------------\n");
-                            inventory.displayInventory();
-                            System.out.println("Current weapon: " + player.getCurrentWeapon());
-                            System.out.println("Current armor: " + player.getCurrentArmor());
-                            status1 = false;
-                        }
-                        else System.out.println("Invalid choice");
-                    } while (status1 == true);          
-                }
-                else System.out.println("Invalid choice");
-            }while(status == true);
-            System.out.println("\n------------------------------------------------------\n");
-            map.drawMap(player);
-            player.showState();
+        System.out.println("1. Move Up");
+        System.out.println("2. Move Down");
+        System.out.println("3. Move Left");
+        System.out.println("4. Move Right");
+        System.out.println("5. No Move");
+        System.out.println("6. Back to menu");
+        System.out.print("Enter your choice: ");
+        choice = input.nextInt();
+        input.nextLine();            
+        switch (choice) {
+            case 1:
+                this.player.moveUp(this.map);
+                break;
+            
+            case 2:
+                this.player.moveDown(this.map);
+                break;
+
+            case 3:
+                this.player.moveLeft(this.map);
+                break;
+            
+            case 4:
+                this.player.moveRight(this.map);
+                break;
+            
+            case 5:
+                break;
+            
+            case 6:
+                playerAction();
+                break;
+            default:
+                break;
         }
     }
 
 
-//---------------------------------- Menu for Attack ---------------------------------------  
-    public void attackMenu(){
+    public void playerAttack(){ // Reminder: need to improve this function (too complex and should have print out in menu if avalible) || solution: None
         //Find all monsters in range of player
         ArrayList<Monster> targets = new ArrayList<Monster>();
-        for(int i = 0; i < map.numberOfMonsters(); i++){
-            if(player.collideMonster(map.getMonsterAtIndex(i)))
-                targets.add(map.getMonsterAtIndex(i));
+        for(int i = 0; i < this.map.numberOfMonsters(); i++){
+            if(player.collideMonster(this.map.getMonsterAtIndex(i)))
+                targets.add(this.map.getMonsterAtIndex(i));
         }
 
         //Print all monsters in range so that player can pick one to attack
         if(targets.size() == 0)
         {
-            System.out.println(">> No monster in range to attack!");
+            System.out.println(">> No monster in range to attack! (press any key to continue)");
+            input.nextLine();
         }
         else
         {
             System.out.printf("|%10s | %20s | %10s |\n", "No.",
                                                         "Name",
-                                                        "HP"); 
+                                                        "HP");
             for(int i = 0; i < targets.size(); i++){
                 System.out.printf("|%10s | %20s | %10s |\n", i + 1, 
                         targets.get(i).getName() + "(" + targets.get(i).getMark() + ")",
@@ -284,79 +229,137 @@ public class GameStage
             System.out.print("Choose a number (0: Exit || 1 - " + targets.size() + ") to attack monster: ");
             choice = input.nextInt();
             if(choice > 0){
-                targets.get(choice - 1).takeDamage(player.getAttack());
-                updateGame();
-                map.drawMap(player);
-                player.showState();
-                targets.clear();
+                targets.get(choice - 1).takeDamage(this.player.getAttack());
             }
             else if(choice < 0)
                 System.out.println("Invalid choice");
             else{           
                 System.out.println("\n------------------------------------------------------\n");
-                map.drawMap(player);
+                playerAction();
             }
         }
     }
 
-
-//-------------------------------------------- Update Objects ------------------------------------------------
-
-    //Update player + items + monsters + door +  game state
-    public void updateGame()
-    {
-        updateMonsters();
-        updateMap();
-        updateGameState();
-    }
-
-    //Update monsters
-    public void updateMonsters()
-    {
-        for(int i = 0; i < map.numberOfMonsters(); i++)
-        {
-            map.getMonsterAtIndex(i).doWork(player, map);
+    
+    public void playerInvent() {
+        System.out.println("\n------------------------------------------------------\n");
+        if(this.invent.isEmpty()) {
+            System.out.println("Empty inventory");
+        } else {
+            this.invent.displayInventory();
+            this.player.showState();
+            boolean status = true;
+            do {
+                int choice = getValidatedInput("Enter a number to show item (Exit: 0 | Range: 1 - " + this.invent.size() + "): ");
+                if(choice == 0) {
+                    this.showGraphic();
+                    status = false;
+                } else if(0 < choice && choice <= this.invent.size()){
+                    handleInventoryItem(choice);
+                } else {
+                    System.out.println("Invalid choice");
+                }
+            } while(status == true);
+            playerAction();
         }
     }
     
-    //Update map
-    public void updateMap()
-    {
-        map.doWork(player,inventory);
+    private void handleInventoryItem(int choice) {
+        boolean status1 = true;
+        System.out.println("\n------------------------------------------------------\n");
+        if(this.invent.getItem(choice - 1) instanceof Weapon)
+            System.out.println((this.invent.getItem(choice - 1)).toString());
+        else if(this.invent.getItem(choice - 1) instanceof Armor)
+            System.out.println((this.invent.getItem(choice - 1)).toString());
+        else if(this.invent.getItem(choice - 1) instanceof Potion)
+            System.out.println(this.invent.getItem(choice - 1).toString());
+        do {
+            int choice1 = getValidatedInput("1. Equip item\n2. Unequip item\n3. Remove item\n4. Back\nEnter your choice: ");
+            if(choice1 == 1){
+                useItem(choice);
+                status1 = false;
+            }
+            else if(choice1 == 2){
+                unequipItem(choice);
+                status1 = false;
+            }
+            else if(choice1 == 3){
+                removeItem(choice);
+                status1 = false;
+            } else if(choice1 == 4){
+                playerInvent();
+                status1 = false;
+            } else {
+                System.out.println("Invalid choice");
+            }
+        } while (status1 == true);
     }
-   
-    //Update game state
-    public void updateGameState()
-    {
-        if(this.player.getHP() <= 0)        //if player died
-        {
-            this.loseFlag = true;                   //loseFlag
-            System.out.println("\n*******************************************************\n");
-            System.out.println("WARNING: You died! Let's start at the beginning");
-            System.out.println("\n*******************************************************\n");
-            System.out.print("Press any key to continue:");
-            input.nextLine();
+    
+    private void useItem(int choice) {
+        if(this.invent.getItem(choice - 1) instanceof Weapon)
+            this.player.equipWeapon(this.invent.getItem(choice - 1));
+        else if (this.invent.getItem(choice - 1) instanceof Armor)
+            this.player.equipArmor(this.invent.getItem(choice - 1));
+        else if (this.invent.getItem(choice -1) instanceof Potion){
+            this.player.equipPotion(this.invent.getItem(choice -1));
+            this.invent.removeItem(choice - 1);
         }
-        else
-        {
-            if(this.map.checkDoorOpen() == true)        //if door is open
-            {
-                System.out.println("\n>> NOW DOOR IS OPEN!!!!");
-                if(this.map.containDoorAt(this.player.getX(), this.player.getY())) //if player moves into the door
-                {
-                    this.winFlag = true;                                //winFlag
-                    System.out.println("\n*******************************************************\n");
-                    System.out.println("Congratulation! You passed stage #" + this.stage + "!!!!");
-                    System.out.println("\n*******************************************************\n");
-                    System.out.print("Press any key to continue:");
-                    input.nextLine();
-                }
+        System.out.println("Equip successfully");
+        System.out.println("\n------------------------------------------------------\n");
+        this.invent.displayInventory();
+        this.player.showState();
+    }
+    private void unequipItem(int choice){
+        if(invent.getItem(choice - 1) instanceof Weapon){
+            if(player.getWeapon() == null)
+                System.out.println("Unequip fail. Player did not use any weapon !!!");
+            else if(player.getWeapon() != invent.getItem(choice - 1))
+                System.out.println("Unequip fail. Wrong item to uneuip !!!");
+            else{
+                player.unequipWeapon();
+                System.out.println("Unequip successfully");
+            }
+        }
+        else if(invent.getItem(choice - 1) instanceof Armor){
+            if(player.getArmor() == null)
+                System.out.println("Unequip fail. Player did not use any armor !!!");
+            else if(player.getArmor() != invent.getItem(choice - 1))
+                System.out.println("Unequip fail. Wrong item to unequip !!!");
+            else{ 
+                player.unequipArmor();
+                System.out.println("Unequip successfully");
+            }
+        }
+        else if(invent.getItem(choice - 1) instanceof Potion)
+            System.out.println("Unequip fail. Potion can not unequip !!!");
+        System.out.println("\n------------------------------------------------------\n");
+        this.invent.displayInventory();
+        this.player.showState();
+    }
+    private void removeItem(int choice) {
+        if(this.invent.getItem(choice - 1) instanceof Weapon && this.invent.getItem(choice - 1).getInUse() == true)
+            this.player.unequipWeapon();
+        else if(this.invent.getItem(choice - 1) instanceof Armor && this.invent.getItem(choice - 1).getInUse() == true)
+            this.player.unequipArmor();
+        this.invent.removeItem(choice - 1);
+        System.out.println("Remove successfully");
+        System.out.println("\n------------------------------------------------------\n");
+        this.invent.displayInventory();
+        this.player.showState();
+    }
+    
+    private int getValidatedInput(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            if (input.hasNextInt()) {
+                return input.nextInt();
+            } else {
+                System.out.println("Invalid input. Please enter a number.");
+                input.next();
             }
         }
     }
 
-
-//--------------------------------------------- Other useful methods -----------------------------------------
 
     public void messageToShow()
     {      
@@ -368,32 +371,92 @@ public class GameStage
         }          
     }
 
-   
+
+//---------------------------------------------------- Reset Player -------------------------------------------
+    public void resetPlayerWhenDied(){
+        this.player = new Player(null);
+        this.invent = new Inventory(inventorySize);
+    }
+
+    
+    public void resetPlayerWhenNextStage(){
+        this.player.setXY(0, 0, map);
+        this.player.heal(this.player.getMaxHp());
+    }
 
 
-    //Embedded Main
+//---------------------------------------------------- Monster Section -----------------------------------------
+    public void monsterAction()
+    {
+        for(int i = 0; i < this.map.numberOfMonsters(); i++)
+        {
+            this.map.getMonsterAtIndex(i).doWork(this.player, this.map);
+        }
+    }
+
+
+//----------------------------------------------------- Graphic Section ----------------------------------------
+    public void showGraphic()
+    {
+        this.map.drawMap(this.player);
+        this.player.showState();
+        this.messageToShow();
+    }
+
+
+//---------------------------------------------------- work with files -----------------------------------------
+
+    public void save(String filename) 
+    {
+        try {
+            FileOutputStream fileOutputStream = new FileOutputStream(filename);
+            ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+            objectOutputStream.writeObject(this);
+            objectOutputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static GameStage load(String filename) 
+    {
+        GameStage stage = null;
+        try {
+            FileInputStream fileInputStream = new FileInputStream(filename);
+            ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
+            stage = (GameStage) objectInputStream.readObject();
+            objectInputStream.close();
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("");
+        }
+        return stage;
+    }
+
+    public boolean delete(String filename) 
+    {
+        File file = new File(filename);
+        return file.delete();
+    }
+
+
+
+
+
+
+//---------------------------------------------------- Embedded Main
     public static void main(String[] args) 
     {
-        final String path = "src\\InputFile\\map3.txt";
-        final int inventorySize = 10;
-        final int stage = 3;
+        GameStage g = new GameStage();
+        g.setExitState(true);
 
-        Player player = new Player(null);
-        Map map = new Map(path);
-        Inventory inventory = new Inventory(inventorySize);
-
-        GameStage gstage = new GameStage(player, map, inventory, stage);
-
-        //player = 300, map = 1, inventory = curent , stage = 1  ==> 
-        //gstage.run();
-
-    //*gstage = new GameStage(player, update_map, inventory, update_stage)
-
-        /*  GameStage stage = new GameStage();
-            // load game
-            stage.next
+        g.save("Test.ser");
 
 
-        */
+        GameStage gLoad = GameStage.load("Test.ser");
+
+        System.out.println(gLoad.isExit());
+
     }
 }
+
+
